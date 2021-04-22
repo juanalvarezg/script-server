@@ -10,6 +10,12 @@
               @click="executeScript">
         Execute
       </button>
+      <button :disabled="!enableUpdateButton || scheduleMode"
+              class="button-update btn"
+              v-bind:class="{ disabled: !enableUpdateButton }"
+              @click="updateScript">
+        UPDATE
+      </button>
       <button :disabled="!enableStopButton"
               class="button-stop btn"
               v-bind:class="{
@@ -162,6 +168,22 @@ export default {
           || this.currentExecutor.state.status === STATUS_ERROR;
     },
 
+    enableUpdateButton() {
+      if (this.scheduleMode) {
+        return false;
+      }
+
+      if (this.hideExecutionControls) {
+        return false;
+      }
+
+      if (this.loading) {
+        return false;
+      }
+
+      return this.status === STATUS_EXECUTING;
+    },
+
     enableScheduleButton() {
       if (this.hideExecutionControls) {
         return false;
@@ -284,6 +306,20 @@ export default {
       this.startExecution();
     },
 
+    updateScript: function () {
+      if (!this.validatePreExecution()) {
+        return;
+      }
+
+      const formData = this.buildFormData();
+      const that = this;
+      formData.then(function(values){
+        const data = new URLSearchParams(values).toString()
+        that.sendUserInput("__UPDATE__" + data);
+      });
+
+    },
+
     openSchedule: function () {
       if (!this.validatePreExecution()) {
         return;
@@ -294,7 +330,8 @@ export default {
     },
 
     ...mapActions('executions', {
-      startExecution: 'startExecution'
+      startExecution: 'startExecution',
+      buildFormData: 'buildFormData'
     }),
 
     stopScript() {

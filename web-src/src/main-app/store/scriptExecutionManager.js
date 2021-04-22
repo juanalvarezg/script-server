@@ -116,6 +116,18 @@ export default {
             dispatch('selectExecutor', selectedExecutor);
         },
 
+        buildFormData({rootState, commit, dispatch}) {
+            const store = this;
+
+            const parameterValues = clone(rootState.scriptSetup.parameterValues);
+            const scriptName = rootState.scriptConfig.scriptConfig.name;
+
+            const formData = parametersToFormData(parameterValues);
+            formData.append('__script_name', scriptName);
+
+            return formData
+        },
+
         startExecution({rootState, commit, dispatch}) {
             const store = this;
 

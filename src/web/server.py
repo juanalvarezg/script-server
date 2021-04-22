@@ -3,11 +3,12 @@ import asyncio
 import json
 import logging.config
 import os
+import shlex
 import signal
 import ssl
 import time
 import urllib
-from urllib.parse import urlencode
+from urllib import parse
 
 import tornado.concurrent
 import tornado.escape
@@ -261,7 +262,61 @@ class ScriptStreamSocket(tornado.websocket.WebSocketHandler):
 
         execution_service.add_finish_listener(finished, execution_id)
 
-    def on_message(self, text):
+    def on_message(self, text: str):
+        user = get_user(self)
+        if text.startswith("__UPDATE__"):
+            audit_name = user.get_audit_name()
+            text = text[len("__UPDATE__"):]
+            try:
+                # arguments = self.form_reader.values
+                arguments = dict(parse.parse_qsl(text))
+                execution_info = external_model.to_execution_info(arguments)
+
+                script_name = execution_info.script
+
+                config_model = self.application.config_service.load_config_model(script_name, user)
+
+                if not config_model:
+                    message = 'Script with name "' + str(script_name) + '" not found'
+                    LOGGER.error(message)
+                    respond_error(self, 400, message)
+                    return
+
+                parameter_values = execution_info.param_values
+
+                # if self.form_reader.files:
+                #     for key, value in self.form_reader.files.items():
+                #         parameter_values[key] = value.path
+
+                try:
+                    config_model.set_all_param_values(parameter_values)
+                    normalized_values = dict(config_model.parameter_values)
+                    quoted = dict()
+                    for k, v in normalized_values.items():
+                        if v is None:
+                            continue
+                        if " " in v:
+                            v = shlex.quote(v)
+                        quoted[k] = v
+                except InvalidValueException as e:
+                    message = 'Invalid parameter %s value: %s' % (e.param_name, str(e))
+                    LOGGER.error(message)
+                    respond_error(self, 400, message)
+                    return
+
+                all_audit_names = user.audit_names
+                LOGGER.info('Calling script %s. User %s', script_name, all_audit_names)
+
+                commandLine = "update " + self.application.execution_service.get_command_full_line(
+                    config_model,
+                    quoted,
+                    user)
+                text = commandLine
+            except ConfigNotAllowedException:
+                LOGGER.warning('Access to the script "' + script_name + '" is denied for ' + audit_name)
+                #respond_error(self, 403, 'Access to the script is denied')
+                return
+
         self.executor.write_to_input(text)
 
     def on_close(self):

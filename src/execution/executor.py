@@ -158,6 +158,14 @@ class ScriptExecutor:
         command = self.script_base_command + audit_script_args
         return ' '.join(command)
 
+    def get_command_parameters(self):
+        audit_script_args = build_command_args(
+            {name: v.get_secure_value() for name, v in self._parameter_values.items()},
+            self.config)
+        audit_script_args = [str(a) for a in audit_script_args]
+        return ' '.join(audit_script_args)
+
+
     def get_anonymized_output_stream(self):
         return self.protected_output_stream
 

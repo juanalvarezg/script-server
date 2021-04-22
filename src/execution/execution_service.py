@@ -40,6 +40,18 @@ class ExecutionService:
 
         return self._executors.get(execution_id)
 
+    def get_command_full_line(self, config, values, user: User):
+        audit_name = user.get_audit_name()
+
+        executor = ScriptExecutor(config, values)
+        execution_id = self._id_generator.next_id()
+
+        audit_command = executor.get_command_parameters()
+        LOGGER.info('Calling script update #%s: %s', execution_id, audit_command)
+
+        return executor.get_command_parameters()
+
+
     def start_script(self, config, values, user: User):
         audit_name = user.get_audit_name()
 
